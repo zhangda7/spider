@@ -10,7 +10,7 @@ import pymongo
 from spider import Constants
 
 RUNNING_CRAWLERS = []
-logger = logging.getLogger("EstateJob")
+logger = logging.getLogger()
 def spider_closing(spider):
     """Activates on spider closed signal"""
     logger.info("Spider closed: %s" % spider)
@@ -21,14 +21,15 @@ def spider_closing(spider):
     #     reactor.stop()
 
 def startCrawler(startEstates):
+    RUNNING_CRAWLERS.append(1)
+    crawler = Crawler(EstateSpider, settings)
+    # stop reactor when spider closes
+    crawler.signals.connect(spider_closing, signal=signals.spider_closed)
     for startEstate in startEstates:
         # crawl responsibly
-        RUNNING_CRAWLERS.append(1)
-        crawler = Crawler(EstateSpider, settings)
-        # stop reactor when spider closes
-        crawler.signals.connect(spider_closing, signal=signals.spider_closed)
+        Constants.pending_urls.put(startEstate["url"])
 
-        crawler.crawl(startEstate)
+    crawler.crawl(Constants.pending_urls.get(False))
 
     reactor.run()
 

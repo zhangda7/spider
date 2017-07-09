@@ -8,7 +8,9 @@ from lxml import etree
 from ..model.Estate import Estate
 from time import gmtime, strftime
 from spider import Constants
+import traceback, sys
 
+host = "sh.lianjia.com"
 user_agent = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.86 Safari/537.36'
 host = "sh.lianjia.com"
 accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
@@ -29,44 +31,42 @@ headers = {'User-Agent': user_agent, "Accept": accept, "Accept-Encoding": accept
            "Accept-Language": acceptLanguage, "Cookie": cookie, "Connection": connection,
            "Host": host, "Upgrade-Insecure-Requests": 1}
 
-class EstateSpider(scrapy.Spider):
+class EstateListSpider(scrapy.Spider):
     name = 'estateSpider'
 
-    def __init__(self, startUrl):
-        self.startUrl = startUrl
-
     def start_requests(self):
-        self.start_urls = self.startUrl
-        yield scrapy.Request(url=self.start_urls, headers=headers, method='GET', callback=self.parseEstate, dont_filter=True)
+        self.start_urls = "http://sh.lianjia.com/xiaoqu/qingpu/d"
+        for i in range(1, 100):
+            full_url = self.start_urls + str(i)
+            yield scrapy.Request(url=full_url, headers=headers, method='GET', callback=self.parseEstateList, dont_filter=True)
+            #time.sleep(10)
 
-    def parseEstate(self, response):
+    def parseEstateList(self, response):
         user_agent = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.22 \
                                          Safari/537.36 SE 2.X MetaSr 1.0'
         headers = {'User-Agent': user_agent}
         lists = response.body.decode('utf-8')
         selector = etree.HTML(lists)
-        # print("Result:" + lists)
-        estate = Estate()
-        estate["name"] = selector.xpath('/html/body/div[4]/div[1]/section/div[1]/div[1]/span/h1/text()').pop()
-        estate["address"] = selector.xpath('/html/body/div[4]/div[1]/section/div[1]/div[1]/span/span[2]/text()').pop()
-        estate["district"] = selector.xpath('//*[@id="zoneView"]/div[2]/div[3]/ol/li[6]/span/a/text()').pop()
-        estate["year"] = selector.xpath('//*[@id="zoneView"]/div[2]/div[3]/ol/li[2]/span/span/text()').pop()
-        estate["average_price"] = selector.xpath('//*[@id="zoneView"]/div[2]/div[2]/div/p[2]/span[1]/text()').pop()
-        tab1 = selector.xpath('//*[@id="res-nav"]/ul/li[2]/a/text()').pop()
-        if(tab1.find("二手房") > 0):
-            estate["houseLink"] = Constants.LIANJIA_HOST + selector.xpath('//*[@id="res-nav"]/ul/li[2]/a/@href').pop()
-        else:
-            estate["houseLink"] = Constants.LIANJIA_HOST + selector.xpath('//*[@id="res-nav"]/ul/li[3]/a/@href').pop()
-        #//*[@id="res-nav"]/ul/li[2]/a
 
-        estate["gmtCreated"] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-        estate[Constants.LIANJIA_ID] = self.getLianjiaId(response.url)
+        estatelist = selector.xpath('//*[@id="house-lst"]/li')
+        for estateHtml in estatelist:
+            try:
+                # print("Result:" + lists)
+                estate = Estate()
+                estate["name"] = estateHtml.xpath('div[2]/h2/a/text()').pop()
+                estate["link"] = Constants.LIANJIA_HOST + estateHtml.xpath('div[2]/h2/a/@href').pop()
+                estate["district"] = estateHtml.xpath("div[2]/div[1]/div[2]/div/a[1]/text()").pop()
+                estate["gmtCreated"] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+                estate[Constants.LIANJIA_ID] = self.getLianjiaId(estate["link"])
 
-        self.logger.info("Estate %s %s", estate["name"], estate["houseLink"])
-        yield estate
-        if(not Constants.pending_urls.empty()):
-            yield scrapy.Request(url=Constants.pending_urls.get(False), headers=headers, method='GET', callback=self.parseEstate,
-                                 dont_filter=True)
+                self.logger.info("Estate %s %s", estate["name"], estate["link"])
+                yield estate
+            except Exception:
+                exc_info = sys.exc_info()
+                traceback.print_exception(*exc_info)
+                del exc_info
+        #handle next page
+
     def getLianjiaId(self, link):
         i1 = link.rfind("/")
         ret = link[i1 + 1:len(link) - 5]

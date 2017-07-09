@@ -8,7 +8,8 @@ from lxml import etree
 import sys
 from time import gmtime, strftime
 from ..model.House import House
-#from scrapy_redis.spiders import RedisSpider
+from .. import Constants
+import traceback
 import logging
 host = "sh.lianjia.com"
 user_agent = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.86 Safari/537.36'
@@ -32,21 +33,21 @@ headers = {'User-Agent': user_agent, "Accept": accept, "Accept-Encoding": accept
            "Host": host, "Upgrade-Insecure-Requests": 1}
 
 class HouseSpider(scrapy.Spider):
-    def __init__(self, startEstate):
-        self.startEstate = startEstate
+    def __init__(self, startUrl):
+        self.startUrl = startUrl
         # self.logger = logging.getLogger("HouseSpider")
     name = 'houseSpider'
     # start_urls = 'http://sh.lianjia.com/xiaoqu/5011000018129.html'
     def start_requests(self):
         # self.start_urls = []
-        self.start_urls = self.startEstate["houseLink"]
+        self.start_urls = self.startUrl
         yield scrapy.Request(url=self.start_urls, headers=headers, method='GET', callback=self.parseHouseList, dont_filter=True)
 
     def get_latitude(self,url):  # 进入每个房源链接抓经纬度
         p = requests.get(url)
         contents = etree.HTML(p.content.decode('utf-8'))
         latitude = contents.xpath('/ html / body / script[19]/text()').pop()
-        time.sleep(3)
+        time.sleep(5)
         regex = '''resblockPosition(.+)'''
         items = re.search(regex, latitude)
         content = items.group()[:-1]  # 经纬度
@@ -64,28 +65,58 @@ class HouseSpider(scrapy.Spider):
             for house in houselist:
                 try:
                     item = House()
+                    estateLink = house.xpath('div/div[2]/div[2]/span[1]/a[1]/@href').pop()
+                    curLianjiaId = self.getLianjiaId(estateLink)
+                    curEstate = Constants.estateMap[curLianjiaId]
                     item['title'] = house.xpath('div/div[1]/a/text()').pop()
-                    item['link'] = house.xpath('div/div[1]/a/@href').pop()
-                    item['estateId'] = self.startEstate["_id"]
-                    # item["estateLianjiaId"] = self.startEstate["lianjiaId"]
-                    item["estateName"] = self.startEstate["name"]
+                    item['link'] = Constants.LIANJIA_HOST + house.xpath('div/div[1]/a/@href').pop()
+                    item['estateId'] = curEstate["_id"]
+                    item["estateLianjiaId"] = curEstate[Constants.LIANJIA_ID]
+                    item["estateName"] = curEstate["name"]
+                    #item["houseId"] =
                     item["gmtCreated"] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-                    # item['model'] = house.xpath('div[1]/div[2]/div/text()').pop().split('|')[1]
-                    # item['area'] = house.xpath('div[1]/div[2]/div/text()').pop().split('|')[2]
-                    # item['focus_num'] = house.xpath('div[1]/div[4]/text()').pop().split('/')[0]
-                    # item['watch_num'] = house.xpath('div[1]/div[4]/text()').pop().split('/')[1]
-                    # item['time'] = house.xpath('div[1]/div[4]/text()').pop().split('/')[2]
                     item['price'] = house.xpath('div/div[2]/div[1]/div/span[1]/text()').pop()
                     item['city'] = "Shanghai"
-                    #item['Latitude'] = self.get_latitude(self.url_detail)
+                    #////*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/ul/li[1]/div/div[2]/div[1]/span/text()
+                    item['houseType'] = house.xpath('div/div[2]/div[1]/span/text()').pop().split('|')[0].strip()
+                    item['area'] = house.xpath('div/div[2]/div[1]/span/text()').pop().split('|')[1].strip()
+                    item['floor'] = house.xpath('div/div[2]/div[1]/span/text()').pop().split('|')[2].strip()
                 except Exception:
-                    print("Unexpected error:", sys.exc_info()[0])
+                    exc_info = sys.exc_info()
+                    traceback.print_exception(*exc_info)
+                    del exc_info
                     pass
                 self.logger.info("Get one house info %s", item["title"])
                 yield item
+            pageCountList = response.xpath('count(//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/a)').extract()
+            #这里需要进行判空操作
+            curPageStr = response.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span/text()').extract().pop()
+            pageCount = int(float(pageCountList[0]))
+            curPage = int(curPageStr)
+            if(pageCount == 0 or pageCount <= curPage):
+                self.logger.info("No next page on %s %d %d", curPageStr, curPage, pageCount)
+            else:
+                nextPageXPath = '//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/a[' + str(pageCount) + ']/@href'
+                nextPage = Constants.LIANJIA_HOST + selector.xpath(nextPageXPath).pop()
+                self.logger.info("Find next page : %s", nextPage)
+                yield scrapy.Request(url=nextPage, headers=headers, method='GET', callback=self.parseHouseList)
         except Exception:
-            print("Unexpected error:", sys.exc_info()[0])
+            exc_info = sys.exc_info()
+            traceback.print_exception(*exc_info)
+            del exc_info
             pass
-
+        try:
+            if(not Constants.pending_urls.empty()):
+                yield scrapy.Request(url=Constants.pending_urls.get(False), headers=headers, method='GET', callback=self.parseHouseList)
+        except Exception:
+            exc_info = sys.exc_info()
+            traceback.print_exception(*exc_info)
+            del exc_info
+            pass
     def parseHouseDetail(self,response):
         pass
+
+    def getLianjiaId(self, link):
+        i1 = link.rfind("/")
+        ret = link[i1 + 1:len(link) - 5]
+        return ret
