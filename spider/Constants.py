@@ -11,3 +11,7 @@ pending_urls = queue.Queue()
 
 estateMap = dict()
 
+proxys = []
+
+failedProxys = []
+

@@ -8,6 +8,7 @@ from scrapy.conf import settings
 import logging
 import pymongo
 from spider import Constants
+from spider.util import ProxyService
 
 RUNNING_CRAWLERS = []
 
@@ -67,5 +68,7 @@ if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO
     )
+    # proxyService = ProxyService.ProxyService()
+    # proxyService.start()
     startEstates = fetchStartUrls(-1)
     startCrawler(startEstates)

@@ -6,7 +6,12 @@ def testGetId():
     print(str[i1 + 1:len(str) - 5])
     pass
 
+def testList():
+    ll = []
+    if(ll != None and len(ll) > 0):
+        ll.pop()
 
 if(__name__ == "__main__"):
-    testGetId()
+    # testGetId
+    testList()
     pass

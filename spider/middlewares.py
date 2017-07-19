@@ -4,8 +4,11 @@
 #
 # See documentation in:
 # http://doc.scrapy.org/en/latest/topics/spider-middleware.html
-
+import logging
+import random
+import spider.Constants as Constants
 from scrapy import signals
+import scrapy
 
 
 class SpiderSpiderMiddleware(object):
@@ -54,3 +57,36 @@ class SpiderSpiderMiddleware(object):
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
+
+class ProxyMiddleware(object):
+    def __init__(self):
+        self.logger = logging.getLogger(ProxyMiddleware.__name__)
+
+    # overwrite process request
+    def process_request(self, request, spider):
+        # Set the location of the proxy
+        proxy = random.choice(Constants.proxys)
+        request.meta['proxy'] = proxy
+        self.logger.warning("Current proxy : %s", request.meta['proxy'])
+
+class CatchExceptionMiddleware(object):
+    def __init__(self):
+        self.logger = logging.getLogger(CatchExceptionMiddleware.__name__)
+
+    def process_response(self, request, response, spider):
+        if response.status < 200 or response.status >= 400:
+            try:
+                yield scrapy.Request(url=request, headers=headers, method='GET', callback=self.parseHouseList, dont_filter=True)
+                self.logger.warning("Proxy %s fail", request.meta['proxy'])
+                Constants.failedProxys.append(request.meta['proxy'])
+                Constants.proxys.remove(request.meta['proxy'])
+            except KeyError:
+                pass
+        return response
+
+    def process_exception(self, request, exception, spider):
+        try:
+            Constants.failedProxys.append(request.meta['proxy'])
+            Constants.proxys.remove(request.meta['proxy'])
+        except Exception:
+            pass
