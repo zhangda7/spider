@@ -41,7 +41,7 @@ class HouseSpider(scrapy.Spider):
     def start_requests(self):
         # self.start_urls = []
         self.start_urls = self.startUrl
-        yield scrapy.Request(url=self.start_urls, headers=headers, method='GET', callback=self.parseHouseList, dont_filter=True)
+        yield scrapy.Request(url=self.start_urls, headers=headers, method='GET', callback=self.parseHouseList, dont_filter=True, errback = lambda x: self.downloadErrorBack(x, self.start_urls))
 
     def get_latitude(self,url):  # 进入每个房源链接抓经纬度
         p = requests.get(url)
@@ -90,6 +90,10 @@ class HouseSpider(scrapy.Spider):
                 yield item
             pageCountList = response.xpath('count(//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/a)').extract()
             #这里需要进行判空操作
+            curPageList = response.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span/text()')
+            if(curPageList == None or len(curPageList) == 0):
+                self.logger.info("Page %s has no curPage, should remove it", self.start_urls)
+                return
             curPageStr = response.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span/text()').extract().pop()
             pageCount = int(float(pageCountList[0]))
             curPage = int(curPageStr)
@@ -114,6 +118,12 @@ class HouseSpider(scrapy.Spider):
             del exc_info
             pass
     def parseHouseDetail(self,response):
+        pass
+
+    def downloadErrorBack(self, e, url):
+        self.logger.error("Url %s download error", url)
+        # yield scrapy.Request(url=url, headers=headers, method='GET', callback=self.parseHouseList,
+        #                      dont_filter=True)
         pass
 
     def getLianjiaId(self, link):
