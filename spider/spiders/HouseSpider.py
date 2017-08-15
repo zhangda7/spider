@@ -90,10 +90,11 @@ class HouseSpider(scrapy.Spider):
                 yield item
             pageCountList = response.xpath('count(//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/a)').extract()
             #这里需要进行判空操作
-            curPageList = response.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span/text()')
-            if(curPageList == None or len(curPageList) == 0):
-                self.logger.info("Page %s has no curPage, should remove it", self.start_urls)
-                return
+            #//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span
+            #curPageList = response.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span/text()')
+            #if(curPageList == None or len(curPageList) == 0):
+            #    self.logger.info("Page %s has no curPage, should remove it", self.start_urls)
+            #    return
             curPageStr = response.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span/text()').extract().pop()
             pageCount = int(float(pageCountList[0]))
             curPage = int(curPageStr)
@@ -105,6 +106,7 @@ class HouseSpider(scrapy.Spider):
                 self.logger.info("Find next page : %s", nextPage)
                 yield scrapy.Request(url=nextPage, headers=headers, method='GET', callback=self.parseHouseList)
         except Exception:
+            self.logger.error("Page %s has error", response.url)
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
             del exc_info
