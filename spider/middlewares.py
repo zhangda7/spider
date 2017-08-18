@@ -65,21 +65,26 @@ class ProxyMiddleware(object):
     # overwrite process request
     def process_request(self, request, spider):
         # Set the location of the proxy
+        if(len(Constants.proxys)== 0):
+            return
         proxy = random.choice(Constants.proxys)
         request.meta['proxy'] = proxy
-        self.logger.warning("Current proxy : %s", request.meta['proxy'])
+        self.logger.warning("Current proxy : %s for request %s", request.meta['proxy'], request.url)
 
 class CatchExceptionMiddleware(object):
     def __init__(self):
         self.logger = logging.getLogger(CatchExceptionMiddleware.__name__)
 
     def process_response(self, request, response, spider):
-        if response.status < 200 or response.status >= 400:
+        #看起来，返回request就是retry，返回response就不retry
+        self.logger.warning("Request %s Proxy %s status %d", request.url, request.meta['proxy'], response.status)
+        if response.status != 200:
             try:
-                yield scrapy.Request(url=request, headers=headers, method='GET', callback=self.parseHouseList, dont_filter=True)
-                self.logger.warning("Proxy %s fail", request.meta['proxy'])
+                # yield scrapy.Request(url=request, headers=headers, method='GET', callback=self.parseHouseList, dont_filter=True)
+                # self.logger.warning("Proxy %s fail", request.meta['proxy'])
                 Constants.failedProxys.append(request.meta['proxy'])
                 Constants.proxys.remove(request.meta['proxy'])
+                return request
             except KeyError:
                 pass
         return response
@@ -88,5 +93,7 @@ class CatchExceptionMiddleware(object):
         try:
             Constants.failedProxys.append(request.meta['proxy'])
             Constants.proxys.remove(request.meta['proxy'])
+            # return request
         except Exception:
             pass
+        return request

@@ -34,9 +34,9 @@ class ProxyService():
         array = res.json()
         proxyNew = []
         for one in array:
-            self.logger.info(one)
+            # self.logger.info(one)
             oneProxy = "http://" + one[0] + ":" + str(one[1])
-            self.logger.info("Find one %s", oneProxy)
+            # self.logger.info("Find one %s", oneProxy)
             proxyNew.append(oneProxy)
         Constants.proxys.clear()
         Constants.proxys.extend(proxyNew)

@@ -5,6 +5,7 @@ import logging
 import random
 import spider.Constants as Constants
 
+#Unused, use middlewares.py instread
 class ProxyMiddleware(object):
     def __init__(self):
         self.logger = logging.getLogger(ProxyMiddleware.__name__)

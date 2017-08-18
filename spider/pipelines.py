@@ -33,7 +33,8 @@ class SpiderPipeline(object):
             try:
                 info = dict(item)
                 if self.estateCollection.insert(info):
-                    print('bingo')
+                    pass
+                    # print('bingo')
             except Exception:
                 print("Unexpected error:", sys.exc_info()[0])
                 pass
@@ -41,7 +42,8 @@ class SpiderPipeline(object):
             try:
                 info = dict(item)
                 if self.houseCollection.insert(info):
-                    print('bingo')
+                    pass
+                    # print('bingo')
             except Exception:
                 print("Unexpected error:", sys.exc_info()[0])
                 pass

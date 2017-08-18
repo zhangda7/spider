@@ -65,10 +65,12 @@ def fetchStartUrls(count):
     return startEstates
 
 if __name__ == "__main__":
+    FORMAT = "%(asctime)s [%(levelname)s] %(threadName)s - %(name)s - %(message)s"
     logging.basicConfig(
+        format=FORMAT,
         level=logging.INFO
     )
-    # proxyService = ProxyService.ProxyService()
-    # proxyService.start()
+    proxyService = ProxyService.ProxyService()
+    proxyService.start()
     startEstates = fetchStartUrls(-1)
     startCrawler(startEstates)

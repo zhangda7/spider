@@ -8,8 +8,10 @@ from lxml import etree
 import sys
 from time import gmtime, strftime
 from ..model.House import House
+from ..model.ProxyEvent import ProxyEvent
 from .. import Constants
 import traceback
+import datetime
 import logging
 host = "sh.lianjia.com"
 user_agent = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.86 Safari/537.36'
@@ -56,6 +58,7 @@ class HouseSpider(scrapy.Spider):
 
     def parseHouseList(self, response):
         'http://bj.lianjia.com/ershoufang/dongcheng/pg2/'
+        self.logger.info("Receive response of url: %s", response.url)
         time.sleep(2)
         try:
             lists = response.body.decode('utf-8')
@@ -70,12 +73,14 @@ class HouseSpider(scrapy.Spider):
                     curEstate = Constants.estateMap[curLianjiaId]
                     item['title'] = house.xpath('div/div[1]/a/text()').pop()
                     item['link'] = Constants.LIANJIA_HOST + house.xpath('div/div[1]/a/@href').pop()
+                    item["houseId"] = self.getHouseLianjiaId(item['link'])
                     item['estateId'] = curEstate["_id"]
                     item["estateLianjiaId"] = curEstate[Constants.LIANJIA_ID]
                     item["estateName"] = curEstate["name"]
                     #item["houseId"] =
-                    item["gmtCreated"] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-                    item['price'] = house.xpath('div/div[2]/div[1]/div/span[1]/text()').pop()
+                    item["gmtCreated"] = datetime.datetime.utcnow()
+                    # item["gmtCreated"] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+                    item['price'] = float(house.xpath('div/div[2]/div[1]/div/span[1]/text()').pop())
                     item['city'] = "Shanghai"
                     #////*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/ul/li[1]/div/div[2]/div[1]/span/text()
                     item['houseType'] = house.xpath('div/div[2]/div[1]/span/text()').pop().split('|')[0].strip()
@@ -123,12 +128,25 @@ class HouseSpider(scrapy.Spider):
         pass
 
     def downloadErrorBack(self, e, url):
-        self.logger.error("Url %s download error", url)
+        self.logger.error("Url %s download error use proxy %s", url, e.request.meta['proxy'])
+        # event = ProxyEvent()
+        # event.requestUrl = url
+        # event.proxy = e.request.meta['proxy']
+        # event.resultCode = 400
+        #
+        Constants.pending_urls.put(url);
+        yield scrapy.Request(url=Constants.pending_urls.get(False), headers=headers, method='GET',
+                             callback=self.parseHouseList)
         # yield scrapy.Request(url=url, headers=headers, method='GET', callback=self.parseHouseList,
         #                      dont_filter=True)
         pass
 
     def getLianjiaId(self, link):
+        i1 = link.rfind("/")
+        ret = link[i1 + 1:len(link) - 5]
+        return ret
+
+    def getHouseLianjiaId(self, link):
         i1 = link.rfind("/")
         ret = link[i1 + 1:len(link) - 5]
         return ret
