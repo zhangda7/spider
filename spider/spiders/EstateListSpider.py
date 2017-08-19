@@ -32,7 +32,7 @@ headers = {'User-Agent': user_agent, "Accept": accept, "Accept-Encoding": accept
            "Host": host, "Upgrade-Insecure-Requests": 1}
 
 class EstateListSpider(scrapy.Spider):
-    name = 'estateSpider'
+    name = 'estateListSpider'
 
     def start_requests(self):
         self.start_urls = "http://sh.lianjia.com/xiaoqu/qingpu/d"

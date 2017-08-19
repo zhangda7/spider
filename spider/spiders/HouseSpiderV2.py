@@ -17,7 +17,7 @@ accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image
 acceptEncoding = 'gzip, deflate'
 acceptLanguage = 'en,zh-CN;q=0.8,zh;q=0.6'
 connection = 'keep-alive'
-cookie = 'lianjia_uuid=2b4b168c-01e5-4a65-b273-31c4777675a5; sample_traffic_test=test_68; ' \
+'''cookie = 'lianjia_uuid=2b4b168c-01e5-4a65-b273-31c4777675a5; sample_traffic_test=test_68; ' \
          'UM_distinctid=15cb17e0a906b-0cb5c330e02bcc-50462f1d-fa000-15cb17e0a919ef; _smt_uid=5943f74e.9aa7704;' \
          ' _gid=GA1.2.1073981028.1497626449; select_city=310000; cityCode=sh; _gat_u=1;' \
          ' gr_user_id=e250af47-e509-43ef-8eee-395c5de3eb42; _gat=1; _ga=GA1.2.1312901874.1497626449;' \
@@ -26,7 +26,11 @@ cookie = 'lianjia_uuid=2b4b168c-01e5-4a65-b273-31c4777675a5; sample_traffic_test
          ' ubt_load_interval_b=1497627475374; ubt_load_interval_c=1497627475374;' \
          ' ubta=2299869246.390599322.1497627011303.1497627318339.1497627475503.4; ' \
          'ubtb=2299869246.390599322.1497627475504.6B6B25625B89F964C76E30B5314BADCF;' \
-         ' ubtc=2299869246.390599322.1497627475504.6B6B25625B89F964C76E30B5314BADCF; ubtd=4'
+         ' ubtc=2299869246.390599322.1497627475504.6B6B25625B89F964C76E30B5314BADCF; ubtd=4'''''
+cookie = 'aliyungf_tc=AQAAAEEteSlPCgEANmbJ2vIvFVQ+RQ+Q; Path=/; HttpOnly; ' \
+         'select_city=310000; Domain=.lianjia.com; Path=/; ' \
+         'cityCode=sh; Domain=.lianjia.com; Path=/;' \
+         'lianjia_uuid=117f845b-aec5-473d-9670-1cecab05a3ae; Domain=.lianjia.com; Expires=Thu, 18-Aug-2022 04:49:51 GMT; Path=/ '
 headers = {'User-Agent': user_agent, "Accept": accept, "Accept-Encoding": acceptEncoding,
            "Accept-Language": acceptLanguage, "Cookie": cookie, "Connection": connection,
            "Host": host, "Upgrade-Insecure-Requests": 1}
@@ -41,6 +45,7 @@ class HouseSpiderV2(scrapy.Spider):
     # start_urls = 'http://sh.lianjia.com/xiaoqu/5011000018129.html'
     def start_requests(self):
         # self.start_urls = []
+        self.logger.info("Yield request %s", self.startUrl)
         yield scrapy.Request(url=self.startUrl, headers=headers, method='GET', callback=self.parseHouseList, dont_filter=True, errback = lambda x: self.downloadErrorBack(x, self.startUrl))
 
     def get_latitude(self,url):  # 进入每个房源链接抓经纬度
@@ -104,6 +109,7 @@ class HouseSpiderV2(scrapy.Spider):
                 nextPageXPath = '//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/a[' + str(pageCount) + ']/@href'
                 nextPage = Constants.LIANJIA_HOST + selector.xpath(nextPageXPath).pop()
                 self.logger.info("Find next page : %s", nextPage)
+                self.logger.info("Yield request %s", nextPage)
                 yield scrapy.Request(url=nextPage, headers=headers, method='GET', callback=self.parseHouseList)
         except Exception:
             self.logger.error("Page %s has error", response.url)
@@ -113,7 +119,9 @@ class HouseSpiderV2(scrapy.Spider):
             pass
         try:
             if(not Constants.pending_urls.empty()):
-                yield scrapy.Request(url=Constants.pending_urls.get(False), headers=headers, method='GET', callback=self.parseHouseList)
+                nextUrl = Constants.pending_urls.get(False)
+                self.logger.info("Yield request %s", nextUrl)
+                yield scrapy.Request(url=nextUrl, headers=headers, method='GET', callback=self.parseHouseList)
         except Exception:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
@@ -124,8 +132,8 @@ class HouseSpiderV2(scrapy.Spider):
 
     def downloadErrorBack(self, e, url):
         self.logger.error("Url %s download error", url)
-        # yield scrapy.Request(url=url, headers=headers, method='GET', callback=self.parseHouseList,
-        #                      dont_filter=True)
+        yield scrapy.Request(url=url, headers=headers, method='GET', callback=self.parseHouseList,
+                             dont_filter=True, errback = lambda x: self.downloadErrorBack(x, url))
         pass
 
     def getLianjiaId(self, link):

@@ -40,7 +40,7 @@ if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO
     )
-    # proxyService = ProxyService.ProxyService()
-    # proxyService.start()
+    proxyService = ProxyService.ProxyService()
+    proxyService.start()
     startEstates = fetchStartUrls(-1)
     startCrawler(startEstates)

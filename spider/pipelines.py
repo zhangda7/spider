@@ -6,9 +6,6 @@
 # See: http://doc.scrapy.org/en/latest/topics/item-pipeline.html
 
 import pymongo
-from scrapy.conf import settings
-
-from .items import LianjiaItem
 from .model.Estate import Estate
 from .model.House import House
 from spider import Constants
