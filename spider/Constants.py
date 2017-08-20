@@ -15,3 +15,5 @@ proxys = []
 
 failedProxys = []
 
+CONCURRENT_REQUEST = 15
+

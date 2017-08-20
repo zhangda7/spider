@@ -6,6 +6,7 @@ import time
 from lxml import etree
 import sys
 from time import gmtime, strftime
+import datetime
 from ..model.House import House
 from .. import Constants
 import traceback
@@ -37,16 +38,19 @@ headers = {'User-Agent': user_agent, "Accept": accept, "Accept-Encoding": accept
 
 class HouseSpiderV2(scrapy.Spider):
     def __init__(self):
-        self.startUrl = Constants.pending_urls.get(False)
-        if(self.startUrl == None):
-            self.logger.error("Can not get start url")
+        self.logger.info("HouseSpiderV2 init")
+        # self.startUrl = Constants.pending_urls.get(False)
+        # if(self.startUrl == None):
+        #     self.logger.error("Can not get start url")
         # self.logger = logging.getLogger("HouseSpider")
     name = 'houseSpiderV2'
     # start_urls = 'http://sh.lianjia.com/xiaoqu/5011000018129.html'
     def start_requests(self):
         # self.start_urls = []
-        self.logger.info("Yield request %s", self.startUrl)
-        yield scrapy.Request(url=self.startUrl, headers=headers, method='GET', callback=self.parseHouseList, dont_filter=True, errback = lambda x: self.downloadErrorBack(x, self.startUrl))
+        for i in range(Constants.CONCURRENT_REQUEST):
+            startUrl = Constants.pending_urls.get(False)
+            self.logger.info("Yield request %s", startUrl)
+            yield scrapy.Request(url=startUrl, headers=headers, method='GET', callback=self.parseHouseList, dont_filter=True, errback = lambda x: self.downloadErrorBack(x, startUrl))
 
     def get_latitude(self,url):  # 进入每个房源链接抓经纬度
         p = requests.get(url)
@@ -75,12 +79,14 @@ class HouseSpiderV2(scrapy.Spider):
                     curEstate = Constants.estateMap[curLianjiaId]
                     item['title'] = house.xpath('div/div[1]/a/text()').pop()
                     item['link'] = Constants.LIANJIA_HOST + house.xpath('div/div[1]/a/@href').pop()
+                    item["houseId"] = self.getHouseLianjiaId(item['link'])
                     item['estateId'] = curEstate["_id"]
                     item["estateLianjiaId"] = curEstate[Constants.LIANJIA_ID]
                     item["estateName"] = curEstate["name"]
-                    #item["houseId"] =
-                    item["gmtCreated"] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-                    item['price'] = house.xpath('div/div[2]/div[1]/div/span[1]/text()').pop()
+                    # item["gmtCreated"] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+                    item["gmtCreated"] = datetime.datetime.utcnow()
+                    item['price'] = float(house.xpath('div/div[2]/div[1]/div/span[1]/text()').pop())
+                    # item['price'] = house.xpath('div/div[2]/div[1]/div/span[1]/text()').pop()
                     item['city'] = "Shanghai"
                     #////*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/ul/li[1]/div/div[2]/div[1]/span/text()
                     item['houseType'] = house.xpath('div/div[2]/div[1]/span/text()').pop().split('|')[0].strip()
@@ -96,21 +102,22 @@ class HouseSpiderV2(scrapy.Spider):
             pageCountList = response.xpath('count(//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/a)').extract()
             #这里需要进行判空操作
             #//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span
-            #curPageList = response.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span/text()')
-            #if(curPageList == None or len(curPageList) == 0):
-            #    self.logger.info("Page %s has no curPage, should remove it", self.start_urls)
-            #    return
-            curPageStr = response.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span/text()').extract().pop()
-            pageCount = int(float(pageCountList[0]))
-            curPage = int(curPageStr)
-            if(pageCount == 0 or pageCount <= curPage):
-                self.logger.info("No next page on %s %d %d", curPageStr, curPage, pageCount)
+            curPageList = response.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span/text()')
+            if(curPageList == None or len(curPageList) == 0):
+               self.logger.info("Page %s has no curPage, should remove it", response.url)
             else:
-                nextPageXPath = '//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/a[' + str(pageCount) + ']/@href'
-                nextPage = Constants.LIANJIA_HOST + selector.xpath(nextPageXPath).pop()
-                self.logger.info("Find next page : %s", nextPage)
-                self.logger.info("Yield request %s", nextPage)
-                yield scrapy.Request(url=nextPage, headers=headers, method='GET', callback=self.parseHouseList)
+                curPageStr = response.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/span/text()').extract().pop()
+                pageCount = int(float(pageCountList[0]))
+                curPage = int(curPageStr)
+                if(pageCount == 0 or pageCount <= curPage):
+                    self.logger.info("No next page on %s %d %d", curPageStr, curPage, pageCount)
+                else:
+                    nextPageXPath = '//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/div[2]/a[' + str(pageCount) + ']/@href'
+                    nextPage = Constants.LIANJIA_HOST + selector.xpath(nextPageXPath).pop()
+                    self.logger.info("Find next page : %s", nextPage)
+                    self.logger.info("Yield request %s", nextPage)
+                    yield scrapy.Request(url=nextPage, headers=headers,
+                                         method='GET', callback=self.parseHouseList, errback = lambda x: self.downloadErrorBack(x, nextPage))
         except Exception:
             self.logger.error("Page %s has error", response.url)
             exc_info = sys.exc_info()
@@ -120,8 +127,9 @@ class HouseSpiderV2(scrapy.Spider):
         try:
             if(not Constants.pending_urls.empty()):
                 nextUrl = Constants.pending_urls.get(False)
-                self.logger.info("Yield request %s", nextUrl)
-                yield scrapy.Request(url=nextUrl, headers=headers, method='GET', callback=self.parseHouseList)
+                self.logger.info("Yield request for queue next %s", nextUrl)
+                yield scrapy.Request(url=nextUrl, headers=headers,
+                                     method='GET', callback=self.parseHouseList, errback = lambda x: self.downloadErrorBack(x, nextUrl))
         except Exception:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
@@ -137,6 +145,11 @@ class HouseSpiderV2(scrapy.Spider):
         pass
 
     def getLianjiaId(self, link):
+        i1 = link.rfind("/")
+        ret = link[i1 + 1:len(link) - 5]
+        return ret
+
+    def getHouseLianjiaId(self, link):
         i1 = link.rfind("/")
         ret = link[i1 + 1:len(link) - 5]
         return ret

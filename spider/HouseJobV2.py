@@ -5,6 +5,7 @@ from spider import Constants
 from scrapy.crawler import CrawlerProcess
 from scrapy.utils.project import get_project_settings
 from spider.util import ProxyService
+from scrapy.utils.log import configure_logging
 
 RUNNING_CRAWLERS = []
 
@@ -13,6 +14,7 @@ def startCrawler(startEstates):
         Constants.estateMap[startEstate[Constants.LIANJIA_ID]] = startEstate
         Constants.pending_urls.put(startEstate["houseLink"])
 
+    print("Total estate num :" + str(Constants.pending_urls.qsize()))
     crawler = CrawlerProcess(get_project_settings())
     crawler.crawl(HouseSpiderV2)
 
@@ -37,7 +39,15 @@ def fetchStartUrls(count):
     return startEstates
 
 if __name__ == "__main__":
+    configure_logging(install_root_handler=False)
+    FORMAT = "%(asctime)s [%(levelname)s] %(threadName)s - %(name)s:%(lineno)d - %(message)s"
+
+    fileHandler = logging.FileHandler('houseJoblog.log', 'w', 'utf-8')  # or whatever
+    fileHandler.setFormatter(logging.Formatter(FORMAT))
+    logging.getLogger().addHandler(fileHandler)
     logging.basicConfig(
+        # filename='houseJoblog.txt',
+        format=FORMAT,
         level=logging.INFO
     )
     proxyService = ProxyService.ProxyService()

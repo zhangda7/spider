@@ -4,6 +4,7 @@ import scrapy
 class House(scrapy.Item):
     title = scrapy.Field()
     link = scrapy.Field()
+    houseId = scrapy.Field()
     estateId = scrapy.Field()
     estateLianjiaId = scrapy.Field()
     estateName = scrapy.Field()
