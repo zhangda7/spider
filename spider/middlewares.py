@@ -10,6 +10,8 @@ import spider.Constants as Constants
 from scrapy import signals
 import scrapy
 
+from w3lib.url import safe_url_string
+from six.moves.urllib.parse import urljoin
 
 class SpiderSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -68,6 +70,40 @@ class ProxyMiddleware(object):
         proxy = random.choice(Constants.proxys)
         request.meta['proxy'] = proxy
         self.logger.warning("Current proxy : %s", request.meta['proxy'])
+
+class CheckRedirect(object):
+    def __init__(self):
+        self.logger = logging.getLogger(CheckRedirect.__name__)
+
+    def process_response(self, request, response, spider):
+        if (request.meta.get('dont_redirect', False) or
+                response.status in getattr(spider, 'handle_httpstatus_list', []) or
+                response.status in request.meta.get('handle_httpstatus_list', []) or
+                request.meta.get('handle_httpstatus_all', False)):
+            return response
+
+        allowed_status = (301, 302, 303, 307)
+        if 'Location' not in response.headers or response.status not in allowed_status:
+            return response
+
+        location = safe_url_string(response.headers['location'])
+
+        redirected_url = urljoin(request.url, location)
+
+
+        if(redirected_url == request.url):
+            self.logger.info("Url %s %s, equal", redirected_url, request.url)
+            pass
+        else:
+            self.logger.info("Url %s %s, not equal, just retry request from scratch", redirected_url, request.url)
+            return request
+
+        # if response.status in (301, 307) or request.method == 'HEAD':
+        #     redirected = request.replace(url=redirected_url)
+        #     return self._redirect(redirected, request, spider, response.status)
+        #
+        # redirected = self._redirect_request_using_get(request, redirected_url)
+        # return self._redirect(redirected, request, spider, response.status)
 
 class CatchExceptionMiddleware(object):
     def __init__(self):
