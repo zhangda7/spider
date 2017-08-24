@@ -12,6 +12,7 @@ import scrapy
 
 from w3lib.url import safe_url_string
 from six.moves.urllib.parse import urljoin
+from scrapy.downloadermiddlewares.redirect import BaseRedirectMiddleware
 
 class SpiderSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -71,9 +72,11 @@ class ProxyMiddleware(object):
         request.meta['proxy'] = proxy
         self.logger.warning("Current proxy : %s", request.meta['proxy'])
 
-class CheckRedirect(object):
-    def __init__(self):
-        self.logger = logging.getLogger(CheckRedirect.__name__)
+logger = logging.getLogger(__name__)
+
+class CheckRedirect(BaseRedirectMiddleware):
+    # def __init__(self):
+    #     self.logger = logging.getLogger(CheckRedirect.__name__)
 
     def process_response(self, request, response, spider):
         if (request.meta.get('dont_redirect', False) or
@@ -92,11 +95,22 @@ class CheckRedirect(object):
 
 
         if(redirected_url == request.url):
-            self.logger.info("Url %s %s, equal", redirected_url, request.url)
+            logger.info("Url %s %s, equal", redirected_url, request.url)
+            #must return response to pass to next middleware
+            # return response
             pass
         else:
-            self.logger.info("Url %s %s, not equal, just retry request from scratch", redirected_url, request.url)
+            logger.info("Url %s %s, not equal, just retry request from scratch", redirected_url, request.url)
+            #set redirect url
+            redirected_url = request.url
             return request
+
+        if response.status in (301, 307) or request.method == 'HEAD':
+            redirected = request.replace(url=redirected_url)
+            return self._redirect(redirected, request, spider, response.status)
+
+        redirected = self._redirect_request_using_get(request, redirected_url)
+        return self._redirect(redirected, request, spider, response.status)
 
         # if response.status in (301, 307) or request.method == 'HEAD':
         #     redirected = request.replace(url=redirected_url)

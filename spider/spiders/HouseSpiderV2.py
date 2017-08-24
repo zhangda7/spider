@@ -71,6 +71,7 @@ class HouseSpiderV2(scrapy.Spider):
             selector = etree.HTML(lists)
 
             houselist = selector.xpath('//*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/ul/li')
+            self.logger.info("Url %s get response, house size %d", response.url, len(houselist))
             for house in houselist:
                 try:
                     item = House()
@@ -85,7 +86,11 @@ class HouseSpiderV2(scrapy.Spider):
                     item["estateName"] = curEstate["name"]
                     # item["gmtCreated"] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
                     item["gmtCreated"] = datetime.datetime.utcnow()
-                    item['price'] = float(house.xpath('div/div[2]/div[1]/div/span[1]/text()').pop())
+                    try:
+                        item['price'] = float(house.xpath('div/div[2]/div[1]/div/span[1]/text()').pop())
+                    except Exception:
+                        self.logger.error("ERROR on parse price of %s", item['link'])
+                        item['price'] = house.xpath('div/div[2]/div[1]/div/span[1]/text()').pop()
                     # item['price'] = house.xpath('div/div[2]/div[1]/div/span[1]/text()').pop()
                     item['city'] = "Shanghai"
                     #////*[@id="js-ershoufangList"]/div[2]/div[3]/div[1]/ul/li[1]/div/div[2]/div[1]/span/text()
@@ -95,6 +100,7 @@ class HouseSpiderV2(scrapy.Spider):
                 except Exception:
                     exc_info = sys.exc_info()
                     traceback.print_exception(*exc_info)
+                    self.logger.error("ERROR on parse houselist of %s", response.url)
                     del exc_info
                     pass
                 self.logger.info("Get one house info %s", item["title"])
@@ -139,7 +145,7 @@ class HouseSpiderV2(scrapy.Spider):
         pass
 
     def downloadErrorBack(self, e, url):
-        self.logger.error("Url %s download error", url)
+        self.logger.error("Url %s download error %s", url, e)
         yield scrapy.Request(url=url, headers=headers, method='GET', callback=self.parseHouseList,
                              dont_filter=True, errback = lambda x: self.downloadErrorBack(x, url))
         pass
