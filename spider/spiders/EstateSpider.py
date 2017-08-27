@@ -40,6 +40,7 @@ class EstateSpider(scrapy.Spider):
         yield scrapy.Request(url=self.start_urls, headers=headers, method='GET', callback=self.parseEstate, dont_filter=True)
 
     def parseEstate(self, response):
+        time.sleep(4)
         user_agent = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.22 \
                                          Safari/537.36 SE 2.X MetaSr 1.0'
         headers = {'User-Agent': user_agent}

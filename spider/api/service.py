@@ -19,10 +19,12 @@ class Service():
         regx = re.compile(".*" + name + ".*", re.IGNORECASE)
         results = self.estateAllCollection.find({"name":regx})
         print(results.count())
+        count = 0
         for result in results:
             print("find ", result)
             traceCount = self.estateTrace.count({"lianjiaId":result["lianjiaId"]})
             if(traceCount == 0):
+                count = count + 1
                 if(needInsert):
                     print("insert to trace")
                     estate = dict()
@@ -32,8 +34,8 @@ class Service():
                     self.estateTrace.insert(estate)
             else:
                 print("Trace already have, no need to insert")
-        pass
+        print("Total need insert count ", count)
 
 if __name__ == "__main__":
     service = Service()
-    service.addEstate("园", True)
+    service.addEstate("苑", False)

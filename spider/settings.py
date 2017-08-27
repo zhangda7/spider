@@ -55,11 +55,11 @@ COOKIES_DEBUG = True
 
 # Enable or disable downloader middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
-DOWNLOADER_MIDDLEWARES = {'scrapy.contrib.downloadermiddleware.httpproxy.HttpProxyMiddleware': 110,
-            'spider.middlewares.ProxyMiddleware': 100,
-                          'spider.middlewares.CheckRedirect':12,
-'scrapy.downloadermiddlewares.redirect.RedirectMiddleware': None,
-            }
+#DOWNLOADER_MIDDLEWARES = {'scrapy.contrib.downloadermiddleware.httpproxy.HttpProxyMiddleware': 110,
+#            'spider.middlewares.ProxyMiddleware': 100,
+#                          'spider.middlewares.CheckRedirect':12,
+#'scrapy.downloadermiddlewares.redirect.RedirectMiddleware': None,
+#            }
 
 # Enable or disable extensions
 # See http://scrapy.readthedocs.org/en/latest/topics/extensions.html

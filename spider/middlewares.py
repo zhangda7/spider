@@ -13,6 +13,7 @@ import scrapy
 from w3lib.url import safe_url_string
 from six.moves.urllib.parse import urljoin
 from scrapy.downloadermiddlewares.redirect import BaseRedirectMiddleware
+from scrapy.exceptions import IgnoreRequest
 
 class SpiderSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -98,19 +99,20 @@ class CheckRedirect(BaseRedirectMiddleware):
             logger.info("Url %s %s, equal", redirected_url, request.url)
             #must return response to pass to next middleware
             # return response
-            pass
+            if response.status in (301, 307) or request.method == 'HEAD':
+                redirected = request.replace(url=redirected_url)
+                return self._redirect(redirected, request, spider, response.status)
+
+            redirected = self._redirect_request_using_get(request, redirected_url)
+            return self._redirect(redirected, request, spider, response.status)
         else:
             logger.info("Url %s %s, not equal, just retry request from scratch", redirected_url, request.url)
+            raise IgnoreRequest("Url " + request.url + " 302 not euqal")
             #set redirect url
-            redirected_url = request.url
-            return request
+            # redirected_url = request.url
+            # return request
 
-        if response.status in (301, 307) or request.method == 'HEAD':
-            redirected = request.replace(url=redirected_url)
-            return self._redirect(redirected, request, spider, response.status)
 
-        redirected = self._redirect_request_using_get(request, redirected_url)
-        return self._redirect(redirected, request, spider, response.status)
 
         # if response.status in (301, 307) or request.method == 'HEAD':
         #     redirected = request.replace(url=redirected_url)
